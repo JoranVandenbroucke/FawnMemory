@@ -1,21 +1,31 @@
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 add_executable(${PROJECT_NAME}_test
-        Map.cpp
-        Vector.cpp
-        Pair.cpp
-        Set.cpp
+        container/CompressedPair.cpp
+        container/DenseMap.cpp
+        container/DenseSet.cpp
+        container/Pair.cpp
+        container/SparseSet.cpp
+        container/Vector.cpp
 )
-
-target_compile_options(${PROJECT_NAME}_test PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>: /W4 /WX /MP $<$<CONFIG:Debug>:${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT} ${DEFAULT_CXX_EXCEPTION_HANDLING}>>
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
-)
-
 target_link_libraries(${PROJECT_NAME}_test PRIVATE
         ${PROJECT_NAME}::${PROJECT_NAME}
 )
 
-include(${CMAKE_SOURCE_DIR}/CMake/SetupCatch.cmake)
+set_target_properties(${PROJECT_NAME}_test PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(${PROJECT_NAME}_test PROPERTIES CXX_EXTENSIONS OFF)
+
+include(compiler_flags)
+set(FUNCTION_NAME "get_compile_flags_${CMAKE_BUILD_TYPE}_${CMAKE_CXX_COMPILER_ID}")
+
+# Call the dynamically constructed function
+if(EXISTS ${FUNCTION_NAME})
+    execute_process(COMMAND ${FUNCTION_NAME} COMPILER_FLAGS)
+endif()
+target_compile_options(${PROJECT_NAME}_test
+        PRIVATE
+            ${COMPILER_FLAGS}
+)
+
+target_compile_features(${PROJECT_NAME}_test PRIVATE cxx_std_23)
+
+include(setup_catch)
 setup_catch(${PROJECT_NAME})

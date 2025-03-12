@@ -4,3 +4,6 @@
 //
 
 export module FawnMemory;
+export import DeerAllocator;
+export import DeerContainer;
+// export import DeerEntity;

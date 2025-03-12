@@ -6,17 +6,17 @@
 #include <catch2/catch_all.hpp>
 #include <string>
 
-import DeerContainer.Pair;
+import FawnMemory;
 
 TEST_CASE("SPair: Basic Construction", "[SPair]") {
-    DeerContainer::SPair<int, std::string> p1{1, "Test"};
+    const DeerContainer::SPair<int, std::string> p1{1, "Test"};
     REQUIRE(p1.first == 1);
     REQUIRE(p1.second == "Test");
 }
 
 TEST_CASE("SPair: Copy and Assignment", "[SPair]") {
-    DeerContainer::SPair<int, std::string> p1{1, "Copy"};
-    DeerContainer::SPair<int, std::string> p2 = p1; // Copy
+    const DeerContainer::SPair<int, std::string> p1{1, "Copy"};
+    const DeerContainer::SPair<int, std::string> p2 = p1; // Copy
     REQUIRE(p2.first == 1);
     REQUIRE(p2.second == "Copy");
 
@@ -27,30 +27,36 @@ TEST_CASE("SPair: Copy and Assignment", "[SPair]") {
 }
 
 TEST_CASE("SPair: Move Semantics", "[SPair]") {
-    DeerContainer::SPair<int, std::string> p1{1, "Move"};
-    DeerContainer::SPair<int, std::string> p2 = std::move(p1);
+    const DeerContainer::SPair<int, std::string> p1{1, "Move"};
+    const DeerContainer::SPair<int, std::string> p2 = std::move(p1);
 
     REQUIRE(p2.first == 1);
     REQUIRE(p2.second == "Move");
 }
 
 TEST_CASE("SPair: make_pair Helper", "[SPair]") {
-    auto p = DeerContainer::MakePair<int, std::string>(3, "Helper");
+    const auto p = DeerContainer::make_pair<int, std::string>(3, "Helper");
     REQUIRE(p.first == 3);
     REQUIRE(p.second == "Helper");
 }
 
 TEST_CASE("SPair: Comparisons", "[SPair]") {
-    DeerContainer::SPair p1{1, 2};
-    DeerContainer::SPair p2{1, 2};
-    DeerContainer::SPair p3{2, 1};
+    const DeerContainer::SPair p1{1, 2};
+    const DeerContainer::SPair p2{1, 2};
+    const DeerContainer::SPair p3{2, 1};
 
-    REQUIRE(p1 == p2);
-    REQUIRE(p1 != p3);
-    REQUIRE(p1 < p3);
-    REQUIRE(p1 <= p2);
-    REQUIRE(p3 > p1);
-    REQUIRE(p3 >= p2);
+    const bool isEqual{p1 == p2};
+    const bool isNotEqual{p1 != p3};
+    const bool isLess{p1 < p3};
+    const bool isLessEqual{p1 <= p2};
+    const bool isGreaterEqual{p3 > p1};
+    const bool isGreater{p3 >= p2};
+    REQUIRE(isEqual);
+    REQUIRE(isNotEqual);
+    REQUIRE(isLess);
+    REQUIRE(isLessEqual);
+    REQUIRE(isGreaterEqual);
+    REQUIRE(isGreater);
 }
 
 TEST_CASE("SPair: Swap", "[SPair]") {
@@ -81,8 +87,8 @@ TEST_CASE("SPair: tuple_size and tuple_element", "[SPair]") {
     using P = DeerContainer::SPair<int, double>;
     REQUIRE(std::tuple_size<P>::value == 2);
 
-    constexpr std::tuple_element_t<0, P> i = 42;
-    constexpr std::tuple_element_t<1, P> d = 3.14;
+    const std::tuple_element_t<0, P> i = 42;
+    const std::tuple_element_t<1, P> d = 3.14;
     REQUIRE(i == 42);
     REQUIRE(d == Catch::Approx(3.14));
 }

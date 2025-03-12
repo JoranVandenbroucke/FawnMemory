@@ -6,8 +6,8 @@
 module;
 #include <cstddef>
 #include <cstdlib>
-export module DeerAllocator.Mallocator;
-import DeerAllocator.Common;
+export module DeerAllocator:Mallocator;
+import :Common;
 
 namespace DeerAllocator
 {

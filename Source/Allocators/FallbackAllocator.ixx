@@ -5,8 +5,8 @@
 
 module;
 #include <cstddef>
-export module DeerAllocator.FallbackAllocator;
-import DeerAllocator.Common;
+export module DeerAllocator:FallbackAllocator;
+import :Common;
 
 namespace DeerAllocator
 {

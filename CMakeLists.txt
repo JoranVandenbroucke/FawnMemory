@@ -1,97 +1,82 @@
 cmake_minimum_required(VERSION 3.28)
-project(FawnMemory VERSION 0.1.0 LANGUAGES CXX C)
+project(FawnMemory VERSION 0.1.0 LANGUAGES CXX)
 
-set(CMAKE_C_STANDARD 17)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CXX_SCAN_FOR_MODULES ON)
+set(CXX_STANDARD_REQUIRED ON)
+set(CXX_EXTENSIONS OFF)
 
-option(FawnMemory_Test "If the tests need to be build to (Default OFF)" OFF)
+option(FawnMemory_Test "If the tests need to be build to (Default OFF)" ON)
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME})
+
+target_sources(${PROJECT_NAME}
+        PRIVATE
         Source/Container/ContainerCompatibleRange.hpp
-)
-target_sources(${PROJECT_NAME} PUBLIC
-        FILE_SET fawn_memory_modules TYPE CXX_MODULES FILES
-        Source/FawnMemory.ixx
-        Source/Allocators/AffixAllocator.ixx
-        Source/Allocators/AllocatorWithStats.ixx
-        #        Source/Allocators/BitmappedBlock.ixx
-        Source/Allocators/Buckitizer.ixx
-        #        Source/Allocators/CascadingAllocator.ixx
-        Source/Allocators/Common.ixx
-        Source/Allocators/DeerAllocator.ixx
-        Source/Allocators/FallbackAllocator.ixx
-        Source/Allocators/Freelist.ixx
-        Source/Allocators/Mallocator.ixx
-        Source/Allocators/Segregator.ixx
-        Source/Allocators/StackAllocator.ixx
-        Source/Allocators/Utilities.ixx
+        Source/Container/ValueTraits.hpp
+        PUBLIC
+        FILE_SET CXX_MODULES TYPE CXX_MODULES FILES
+        source/FawnMemory.ixx
+        source/Allocators/AffixAllocator.ixx
+        source/Allocators/AllocatorWithStats.ixx
+        #        source/Allocators/BitmappedBlock.ixx
+        source/Allocators/Buckitizer.ixx
+        #        source/Allocators/CascadingAllocator.ixx
+        source/Allocators/Common.ixx
+        source/Allocators/DeerAllocator.ixx
+        source/Allocators/FallbackAllocator.ixx
+        source/Allocators/Freelist.ixx
+        source/Allocators/Mallocator.ixx
+        source/Allocators/Segregator.ixx
+        source/Allocators/StackAllocator.ixx
+        source/Allocators/Utilities.ixx
 
-        Source/Container/DeerContainer.ixx
-        Source/Container/Map.ixx
-        Source/Container/Pair.ixx
-        Source/Container/Set.ixx
-        Source/Container/Vector.ixx
-        Source/Container/ValueTraits.ixx
+        source/Container/CircularBuffer.ixx
+        source/Container/CompressedPair.ixx
+        source/Container/DeerContainer.ixx
+        source/Container/DenseMap.ixx
+        source/Container/DenseSet.ixx
+        source/Container/FixedString.ixx
+        source/Container/Pair.ixx
+        source/Container/SparseSet.ixx
+        source/Container/Vector.ixx
 
-        Source/EntityComponent/DeerEntity.ixx
-        Source/EntityComponent/ECManager.ixx
-        Source/EntityComponent/System.ixx
+#        source/EntityComponent/DeerEntity.ixx
+#        source/EntityComponent/ECManager.ixx
+#        source/EntityComponent/Storage.ixx
 )
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(compiler_flags)
+set(FUNCTION_NAME "get_compile_flags_${CMAKE_BUILD_TYPE}_${CMAKE_CXX_COMPILER_ID}")
+
+# Call the dynamically constructed function
+if(EXISTS ${FUNCTION_NAME})
+    execute_process(COMMAND ${FUNCTION_NAME} COMPILER_FLAGS)
+endif()
 target_compile_options(${PROJECT_NAME}
         PRIVATE
-        $<$<CONFIG:Debug>:${DEFAULT_CXX_DEBUG_INFORMATION_FORMAT} ${DEFAULT_CXX_EXCEPTION_HANDLING}>
-        $<$<CXX_COMPILER_ID:MSVC>:/W4 /WX /MP >
-        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror>
-        PUBLIC
-        $<$<CXX_COMPILER_ID:GNU>:-fmodules-ts>
-        # todo remove -Wdepricated -Wdepricated-declarations
-        #todo --embed-dir=${CMAKE_SOURCE_DIR}/Embedded/
-        $<$<CXX_COMPILER_ID:Clang>: -fembed-bitcode>
+            ${COMPILER_FLAGS}
 )
+
+target_link_options(${PROJECT_NAME}
+        PRIVATE
+        $<$<CXX_COMPILER_ID:Clang>: $<$<BOOL:${USE_LLD}>:-fuse-ld=lld>>>
+        $<$NOT<$<BOOL:${USE_LLD}>>:
+            $<$<CXX_COMPILER_ID:MSVC>:
+                /Gw /Gy /GL
+            >
+            $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:
+                -flto=full
+            >
+        >
+)
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-DBALBINO_DEBUG>)
-target_compile_features(${PROJECT_NAME} PRIVATE
-        cxx_aggregate_default_initializers
-        cxx_alignof
-        cxx_attributes
-        cxx_auto_type
-        cxx_binary_literals
-        cxx_constexpr
-        cxx_contextual_conversions
-        cxx_defaulted_functions
-        cxx_defaulted_move_initializers
-        cxx_delegating_constructors
-        cxx_deleted_functions
-        cxx_enum_forward_declarations
-        cxx_explicit_conversions
-        cxx_final
-        cxx_generalized_initializers
-        cxx_generic_lambdas
-        cxx_inheriting_constructors
-        cxx_inline_namespaces
-        cxx_lambda_init_captures
-        cxx_lambdas
-        cxx_long_long_type
-        cxx_noexcept
-        cxx_nonstatic_member_init
-        cxx_nullptr
-        cxx_override
-        cxx_range_for
-        cxx_raw_string_literals
-        cxx_right_angle_brackets
-        cxx_rvalue_references
-        cxx_sizeof_member
-        cxx_static_assert
-        cxx_std_23
-        cxx_strong_enums
-        cxx_thread_local
-        cxx_uniform_initialization
-        cxx_unrestricted_unions
-        cxx_user_literals
-)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 
 if (DEFINED FawnMemory_Test AND FawnMemory_Test)
     add_subdirectory(tests)

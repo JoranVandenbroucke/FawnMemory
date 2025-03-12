@@ -4,11 +4,11 @@
 //
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch_all.hpp>
 #include <string>
 
-import DeerContainer.Map;
-import DeerContainer.Pair;
+#include <catch2/catch_all.hpp>
+
+import FawnMemory;
 
 TEST_CASE( "CDenseMap: Constructors and Basic Access" )
 {

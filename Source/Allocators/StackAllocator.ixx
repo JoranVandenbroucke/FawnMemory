@@ -6,8 +6,8 @@
 module;
 #include <bit>
 #include <cstddef>
-export module DeerAllocator.StackAllocator;
-import DeerAllocator.Common;
+export module DeerAllocator:StackAllocator;
+import :Common;
 
 namespace DeerAllocator
 {

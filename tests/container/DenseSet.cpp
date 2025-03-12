@@ -4,10 +4,10 @@
 //
 
 #define CATCH_CONFIG_MAIN
-#include <catch2/catch_all.hpp>
 #include <string>
 
-import DeerContainer.Set;
+#include <catch2/catch_all.hpp>
+import FawnMemory;
 
 TEST_CASE("CDenseSet basic operations", "[CDenseSet]") {
     DeerContainer::CDenseSet<int> set;

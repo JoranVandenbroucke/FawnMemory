@@ -6,7 +6,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
 
-import DeerContainer.Vector;
+import FawnMemory;
 TEST_CASE( "DeerContainer Vecotr Basic Operations", "[DeerContainerVector]" )
  {
     DeerContainer::CVector<int> vec;
