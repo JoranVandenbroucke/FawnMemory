@@ -462,3 +462,4 @@ FodyWeavers.xsd
 *.sln.iml
 .idea/
 cmake-build-*/
+[Bb]uild/

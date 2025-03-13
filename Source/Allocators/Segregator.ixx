@@ -5,8 +5,8 @@
 
 module;
 #include <cstddef>
-export module DeerAllocator.Segregator;
-import DeerAllocator.Common;
+export module DeerAllocator:Segregator;
+import :Common;
 
 namespace DeerAllocator
 {

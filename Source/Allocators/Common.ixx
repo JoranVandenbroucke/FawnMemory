@@ -5,11 +5,11 @@
 
 module;
 #include <cstddef>
-export module DeerAllocator.Common;
+export module DeerAllocator:Common;
 
 namespace DeerAllocator
 {
-    export struct SBlock
+    export struct SBlock final
     {
         void* pData{nullptr};
         std::size_t size{0};

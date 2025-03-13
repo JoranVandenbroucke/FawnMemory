@@ -1,785 +1,452 @@
 //
-// Copyright (c) 2024.
+// Copyright (c) 2025.
 // Author: Joran Vandenbroucke.
 //
 
 module;
-#include <ranges>
+#include <compare>
+#include <cstddef>
+#include <format>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
-export module DeerContainer.Pair;
+export module DeerContainer:Pair;
 
 namespace DeerContainer
 {
-template<typename Type>
-concept PairLike = requires
-        {
-            typename std::tuple_size<Type>::type;
-        } && std::tuple_size_v<Type> == 2 &&
-        (
-            std::same_as<Type, std::pair<typename Type::first_type, typename Type::second_type>> ||// std::SPair specialization
-            requires { typename std::tuple_element_t<0, Type>; } ||                                // std::tuple specialization
-            std::same_as<Type, std::array<typename Type::value_type, 2>> ||                        // std::array of size 2
-            std::ranges::range<Type>                                                               // std::ranges::subrange with 2 elements
-        );
 
-template<class Type, char Element, bool CanBeEmptyBase = std::is_empty_v<Type> && !std::is_final_v<Type>>
-struct SPairElement
+export template <class T1, class T2>
+struct SPair
 {
-    using value_type = Type;
-    using reference = Type&;
-    using const_reference = const Type&;
+    using first_type  = T1;
+    using second_type = T2;
+    first_type  first;
+    second_type second;
 
-    constexpr SPairElement() noexcept(std::is_nothrow_constructible_v<Type>) requires std::is_default_constructible_v<Type>
-        : m_value{}
+    constexpr explicit(!std::is_default_constructible_v<first_type> || !std::is_default_constructible_v<second_type>) SPair() = default;
+    constexpr explicit(!std::is_convertible_v<const first_type&, first_type> || !std::is_convertible_v<const second_type&, second_type>)
+        SPair(const first_type& x, const second_type& y)
+        requires(std::is_copy_constructible_v<first_type> && std::is_copy_constructible_v<second_type>)
+        : first{x}, second{y}
+    {
+    }
+    template <typename U1 = first_type, typename U2 = second_type>
+    constexpr explicit(!std::is_convertible_v<U1, first_type> || !std::is_convertible_v<U2, second_type>) SPair(U1&& x, U2&& y)
+        requires(std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>)
+        : first{std::forward<U1>(x)}, second{std::forward<U2>(y)}
+    {
+    }
+    template <typename U1, typename U2>
+    constexpr explicit(!std::is_convertible_v<U1&, first_type> || !std::is_convertible_v<U2&, second_type>) SPair(SPair<U1, U2>& p)
+        requires(std::is_constructible_v<first_type, U1&> && std::is_constructible_v<second_type, U2&>)
+        : first{p.first}, second{p.second}
+    {
+    }
+    template <typename U1, typename U2>
+    constexpr explicit(!std::is_convertible_v<const U1&, first_type> || !std::is_convertible_v<const U2&, second_type>)
+        SPair(const SPair<U1, U2>& p)
+        requires(std::is_constructible_v<first_type, const U1&> && std::is_constructible_v<second_type, const U2&>)
+        : first{p.first}, second{p.second}
+    {
+    }
+    template <typename U1, typename U2>
+    constexpr explicit(!std::is_convertible_v<U1, first_type> || !std::is_convertible_v<U2, second_type>) SPair(SPair<U1, U2>&& p)
+        requires(std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>)
+        : first{std::forward<U1>(p.first)}, second{std::forward<U2>(p.second)}
+    {
+    }
+    template <typename U1, typename U2>
+    constexpr explicit(!std::is_convertible_v<const U1, first_type> || !std::is_convertible_v<const U2, second_type>)
+        SPair(const SPair<U1, U2>&& p)
+        requires(std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>)
+        : first{std::forward<const U1>(p.first)}, second{std::forward<const U2>(p.second)}
+    {
+    }
+    template <typename P>
+    constexpr explicit(!std::is_convertible_v<decltype(std::get<0>(std::declval<P>())), first_type>
+                       || !std::is_convertible_v<decltype(std::get<1>(std::declval<P>())), second_type>) SPair(P&& p)
+        requires(std::is_constructible_v<first_type, decltype(std::get<0>(std::declval<P>()))>
+                 && std::is_constructible_v<second_type, decltype(std::get<1>(std::declval<P>()))>)
+        : first{std::get<0>(std::forward_as_tuple(p))}, second{std::get<1>(std::forward_as_tuple(p))}
     {
     }
 
-    template<typename P>
-        requires ( !std::is_same_v<SPairElement, std::decay_t<P>> )
-    explicit constexpr SPairElement( P&& value ) noexcept(std::is_nothrow_constructible_v<Type, P>)
-        : m_value{std::forward<P>( value )}
+    template <typename... U1, typename... U2>
+    constexpr SPair(std::piecewise_construct_t /**/, std::tuple<U1...> first_arg, std::tuple<U2...> second_arg) :
+        first{std::make_from_tuple<first_type>(std::move(first_arg))}, second{std::make_from_tuple<second_type>(std::move(second_arg))}
     {
     }
 
-    template<typename... Args, std::size_t... Indices>
-    constexpr explicit SPairElement( std::piecewise_construct_t /*piecewise_construct*/, std::tuple<Args...> args, std::index_sequence<Indices...> /*indices*/ ) noexcept(std::is_nothrow_constructible_v<Type, Args...>)
-        : m_value( std::forward<Args>( std::get<Indices>( args ) )... )
+    constexpr SPair(const SPair&) = default;
+    constexpr SPair(SPair&&)      = default;
+
+    constexpr SPair& operator=(const SPair& other)
+        requires(std::is_copy_assignable_v<first_type> && std::is_copy_assignable_v<second_type>)
     {
-    }
-
-    constexpr auto get() noexcept -> reference
-    {
-        return m_value;
-    }
-
-    constexpr auto get() const noexcept -> const_reference
-    {
-        return m_value;
-    }
-
-private:
-    Type m_value;
-};
-
-template<class Type, char Element>
-struct SPairElement<Type, Element, true> : Type
-{
-    using value_type = Type;
-    using reference = Type&;
-    using const_reference = const Type&;
-
-    constexpr SPairElement() = default;
-
-    constexpr SPairElement() noexcept(std::is_nothrow_constructible_v<Type>) requires std::is_default_constructible_v<Type>
-        : Type{}
-    {
-    }
-
-    template<typename P>
-        requires ( !std::is_same_v<SPairElement, std::decay<P>> )
-    explicit constexpr SPairElement( P&& value ) noexcept(std::is_nothrow_constructible_v<Type, P>)
-        : Type{std::forward<P>( value )}
-    {
-    }
-
-    template<typename... Args, std::size_t... Indices>
-    constexpr explicit SPairElement( std::piecewise_construct_t /*piecewise_construct*/, std::tuple<Args...> args, std::index_sequence<Indices...> /*indices*/ ) noexcept(std::is_nothrow_constructible_v<Type, Args...>)
-        : Type( std::forward<Args>( std::get<Indices>( args ) )... )
-    {
-    }
-
-    constexpr auto get() noexcept -> reference
-    {
+        first  = other.first;
+        second = other.second;
         return *this;
     }
 
-    constexpr auto get() const noexcept -> const_reference
+    constexpr const SPair& operator=(const SPair& other) const
+        requires(std::is_copy_assignable_v<const first_type> && std::is_copy_assignable_v<const second_type>)
     {
-        return *this;
-    }
-};
-
-export template<class Type1, class Type2>
-struct SCompressedPair : SPairElement<Type1, 0>, private SPairElement<Type2, 1>
-{
-    using first_type = SPairElement<Type1, 0>;
-    using second_type = SPairElement<Type2, 1>;
-
-    using first_value_type = Type1;
-    using second_value_type = Type2;
-
-    constexpr explicit(std::is_default_constructible_v<first_type> && std::is_default_constructible_v<second_type>)
-        SCompressedPair()
-            noexcept(std::is_nothrow_constructible_v<first_type> && std::is_nothrow_constructible_v<second_type>)
-            requires( std::is_default_constructible_v<first_type> && std::is_default_constructible_v<second_type> )
-        : first_type()
-        , second_type()
-    {
-    }
-
-    constexpr explicit(!( std::is_convertible_v<const first_type&, first_type> && std::is_convertible_v<const second_type&, second_type> ))
-        SCompressedPair( const first_type& left, const second_type& right )
-            noexcept(std::is_nothrow_copy_constructible_v<first_type> && std::is_nothrow_copy_constructible_v<second_type>)
-            requires std::is_default_constructible_v<first_type> && std::is_default_constructible_v<second_type>
-        : first_type{left}
-        , second_type{right}
-    {
-    }
-
-    template<class U1 = first_type, class U2 = second_type>
-    constexpr explicit(!( std::is_convertible_v<U1, first_type> && std::is_convertible_v<U2, second_type> ))
-        SCompressedPair( U1&& left, U2&& right )
-            noexcept(std::is_nothrow_constructible_v<first_type, U1&&> && std::is_nothrow_constructible_v<second_type, U2&&>)
-            requires std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>
-
-        : first_type{std::forward<U1>( left )}
-        , second_type{std::forward<U2>( right )}
-    {
-    }
-
-    template<class U1, class U2>
-    constexpr explicit(!( std::is_convertible_v<U1&, first_type> && std::is_convertible_v<U2&, second_type> ))
-        SCompressedPair( SCompressedPair<U1, U2>& SPair )
-            noexcept(std::is_nothrow_constructible_v<first_type, U1&> && std::is_nothrow_constructible_v<second_type, U2&>)
-            requires std::is_constructible_v<first_type, U1&> && std::is_constructible_v<second_type, U2&>
-        : first_type{SPair.first}
-        , second_type{SPair.second}
-    {
-    }
-
-    template<class U1, class U2>
-    constexpr explicit(!( std::is_convertible_v<const U1&, first_type> && std::is_convertible_v<const U2&, second_type> ))
-        SCompressedPair( const SCompressedPair<U1, U2>& pair )
-            noexcept(std::is_nothrow_constructible_v<first_type, const U1&> && std::is_nothrow_constructible_v<second_type, const U2&>)
-            requires std::is_constructible_v<first_type, const U1&> && std::is_constructible_v<second_type, const U2&>
-        : first_type{pair.first}
-        , second_type{pair.second}
-    {
-    }
-
-    template<class U1, class U2>
-        requires std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>
-    constexpr explicit(!( std::is_convertible_v<U1, first_type> && std::is_convertible_v<U2, second_type> ))
-        SCompressedPair( SCompressedPair<U1, U2>&& pair )
-        : first_type{std::forward<U1>( pair.first )}
-        , second_type{std::forward<U2>( pair.second )}
-    {
-    }
-
-    template<class U1, class U2>
-    constexpr explicit(!( std::is_convertible_v<const U1&&, first_type> && std::is_convertible_v<const U2&&, second_type> ))
-        SCompressedPair( const SCompressedPair<U1, U2>&& pair )
-            noexcept(std::is_nothrow_constructible_v<first_type, const U1&&> && std::is_nothrow_constructible_v<second_type, const U2&&>)
-            requires std::is_constructible_v<first_type, const U1&&> && std::is_constructible_v<second_type, const U2&&>
-        : first_type{std::move( pair.first )}
-        , second_type{std::move( pair.second )}
-    {
-    }
-
-    template<PairLike P>
-        requires std::is_constructible_v<first_type, decltype(std::get<0>( std::declval<P&&>() ))> && std::is_constructible_v<second_type, decltype(std::get<1>( std::declval<P&&>() ))>
-    constexpr explicit(!( std::is_convertible_v<decltype(std::get<0>( std::declval<P&&>() )), first_type> && std::is_convertible_v<decltype(std::get<1>( std::declval<P&&>() )), second_type> ))
-        SCompressedPair( P&& SPair )
-        : first_type( std::get<0>( std::forward<P>( SPair ) ) )
-        , second_type( std::get<1>( std::forward<P>( SPair ) ) )
-    {
-    }
-
-    template<class... Args1, class... Args2>
-    constexpr SCompressedPair( std::piecewise_construct_t /*piecewise_construct*/, std::tuple<Args1...> first_args, std::tuple<Args2...> second_args )
-        : first_type{std::forward<Args1>( std::get<Args1>( first_args ) )...}
-        , second_type{std::forward<Args2>( std::get<Args2>( second_args ) )...}
-    {
-    }
-
-    constexpr auto operator=( const SCompressedPair& other ) -> SCompressedPair& requires std::is_copy_assignable_v<first_type> && std::is_copy_assignable_v<second_type>
-    {
-        if ( this != &other )
-        {
-            first() = other.first();
-            second() = other.second();
-        }
+        first  = other.first;
+        second = other.second;
         return *this;
     }
 
-    constexpr auto operator=( const SCompressedPair& ) -> SCompressedPair& requires std::is_copy_assignable_v<const first_type> && std::is_copy_assignable_v<const second_type>
-    = default;
-
-    template<class U1, class U2>
-    constexpr auto operator=( const SCompressedPair<U1, U2>& other ) -> SCompressedPair& requires std::is_assignable_v<first_type&, const U1&> && std::is_assignable_v<second_type&, const U2&>
+    template <typename U1, typename U2>
+    constexpr SPair& operator=(const SPair<U1, U2>& other)
+        requires(std::is_assignable_v<first_type&, const U1&> && std::is_assignable_v<second_type&, const U2&>)
     {
-        if ( this != &other )
-        {
-            first() = other.first();
-            second() = other.second();
-        }
+        first  = other.first;
+        second = other.second;
         return *this;
     }
 
-    template<class U1, class U2>
-    constexpr auto operator=( const SCompressedPair<U1, U2>& other ) const -> const SCompressedPair& requires std::is_assignable_v<const first_type&, const U1&> && std::is_assignable_v<const second_type&, const U2&>
+    template <typename U1, typename U2>
+    constexpr const SPair& operator=(const SPair<U1, U2>& other) const
+        requires(std::is_assignable_v<const first_type&, const U1&> && std::is_assignable_v<const second_type&, const U2&>)
     {
-        if ( this != &other )
-        {
-            first() = other.first();
-            second() = other.second();
-        }
+        first  = other.first;
+        second = other.second;
         return *this;
     }
 
-    constexpr auto operator=( SCompressedPair&& other )
-        noexcept(std::is_nothrow_assignable_v<const first_type&, first_type> && std::is_nothrow_assignable_v<const second_type&, second_type>) -> SCompressedPair& requires std::is_move_assignable_v<first_type&> && std::is_move_assignable_v<
-        second_type&>
+    constexpr SPair& operator=(SPair&& other) noexcept(std::is_nothrow_move_assignable_v<first_type>
+                                                       && std::is_nothrow_move_assignable_v<second_type>)
+        requires(std::is_move_assignable_v<first_type> && std::is_move_assignable_v<second_type>)
     {
-        first() = std::move( other ).first();
-        second() = std::move( other ).second();
+        first  = std::move(other.first);
+        second = std::move(other.second);
         return *this;
     }
 
-    constexpr auto operator=( SCompressedPair&& other ) const
-        noexcept(std::is_nothrow_assignable_v<const first_type&, first_type> && std::is_nothrow_assignable_v<const second_type&, second_type>) -> const SCompressedPair& requires std::is_assignable_v<const first_type&, first_type> &&
-        std::is_assignable_v
-        <const second_type&, second_type>
+    constexpr const SPair& operator=(SPair&& other) const
+        requires(std::is_assignable_v<const first_type&, first_type> && std::is_assignable_v<const second_type&, second_type>)
     {
-        first() = std::forward<first_type>( other.first() );
-        second() = std::forward<second_type>( other.second() );
+        first  = std::move(other.first);
+        second = std::move(other.second);
         return *this;
     }
 
-    template<class U1, class U2>
-    constexpr auto operator=( SCompressedPair<U1, U2>&& other ) -> SCompressedPair& requires std::is_assignable_v<const first_type&, U1> && std::is_assignable_v<const second_type&, U2>
+    template <typename U1, typename U2>
+    constexpr SPair& operator=(SPair<U1, U2>&& other)
+        requires(std::is_assignable_v<first_type&, U1> && std::is_assignable_v<second_type&, U2>)
     {
-        first() = std::forward<first_type>( other.first() );
-        second() = std::forward<second_type>( other.second() );
+        first  = std::forward<U1>(other.first);
+        second = std::forward<U2>(other.second);
         return *this;
     }
 
-    template<class U1, class U2>
-    constexpr auto operator=( SCompressedPair<U1, U2>&& other ) const -> const SCompressedPair& requires std::is_assignable_v<const first_type&, const U1&> && std::is_assignable_v<const second_type&, const U2&>
+    template <typename U1, typename U2>
+    constexpr const SPair& operator=(SPair<U1, U2>&& other) const
+        requires(std::is_assignable_v<const first_type&, U1> && std::is_assignable_v<const second_type&, U2>)
     {
-        first() = std::forward<first_type>( other.first() );
-        second() = std::forward<second_type>( other.second() );
+        first  = std::forward<U1>(other.first);
+        second = std::forward<U2>(other.second);
         return *this;
     }
 
-    template<PairLike P>
-    constexpr auto operator=( P&& other ) -> SCompressedPair& requires( std::is_assignable_v<first_type&, decltype(std::get<0>( std::declval<P>() ))> && std::is_assignable_v<second_type&, decltype(std::get<1>( std::declval<P>() ))> )
+    template <typename P>
+    constexpr SPair& operator=(P&& other)
+        requires(!std::same_as<std::remove_cvref_t<P>, SPair>
+                 && std::is_assignable_v<first_type&, decltype(std::get<0>(std::forward<P>(other)))>
+                 && std::is_assignable_v<second_type&, decltype(std::get<1>(std::forward<P>(other)))>)
     {
-        first() = std::get<0>( std::forward<P>( other ) );
-        second() = std::get<1>( std::forward<P>( other ) );
+        first  = std::get<0>(std::forward<P>(other));
+        second = std::get<1>(std::forward<P>(other));
         return *this;
     }
 
-    template<PairLike P>
-    constexpr auto operator=( P&& other ) const -> const SCompressedPair& requires( std::is_assignable_v<first_type&, decltype(std::get<0>( std::declval<P>() ))> && std::is_assignable_v<second_type&, decltype(std::get<1>( std::declval<P>() ))> )
+    template <typename P>
+    constexpr const SPair& operator=(P&& other) const
+        requires(!std::same_as<std::remove_cvref_t<P>, SPair>
+                 && std::is_assignable_v<const first_type&, decltype(std::get<0>(std::forward<P>(other)))>
+                 && std::is_assignable_v<const second_type&, decltype(std::get<1>(std::forward<P>(other)))>)
     {
-        first() = std::get<0>( std::forward<P>( other ) );
-        second() = std::get<1>( std::forward<P>( other ) );
+        first  = std::get<0>(std::forward<P>(other));
+        second = std::get<1>(std::forward<P>(other));
         return *this;
     }
 
-    constexpr ~SCompressedPair() = default;
-    constexpr SCompressedPair( const SCompressedPair& other ) = default;
-    constexpr SCompressedPair( SCompressedPair&& other ) noexcept = default;
-
-    constexpr auto first() noexcept -> typename first_type::reference
-    {
-        return static_cast<first_type&>(*this).get();
-    }
-
-    constexpr auto first() const noexcept -> typename first_type::const_reference
-    {
-        return static_cast<const first_type&>(*this).get();
-    }
-
-    constexpr auto second() noexcept -> typename second_type::reference
-    {
-        return static_cast<second_type&>(*this).get();
-    }
-
-    constexpr auto second() const noexcept -> typename second_type::const_reference
-    {
-        return static_cast<second_type const&>(*this).get();
-    }
-
-    template<std::size_t Index>
-    [[nodiscard]] constexpr auto get() noexcept
-    {
-        if constexpr ( Index == 0U )
-        {
-            return first();
-        }
-        else
-        {
-            static_assert( Index == 1U, "Index out of bounds" );
-            return second();
-        }
-    }
-
-    template<std::size_t Index>
-    [[nodiscard]] constexpr auto get() const noexcept
-    {
-        if constexpr ( Index == 0U )
-        {
-            return first();
-        }
-        else
-        {
-            static_assert( Index == 1U, "Index out of bounds" );
-            return second();
-        }
-    }
-
-    friend constexpr auto operator==( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        return lhs.first() == rhs.first()
-                && lhs.second() == rhs.second();
-    }
-
-    friend constexpr auto operator!=( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        return !( lhs == rhs );
-    }
-
-    friend constexpr auto operator<( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        if ( lhs.first() < rhs.first() )
-        {
-            return true;
-        }
-        if ( rhs.first() < lhs.first() )
-        {
-            return false;
-        }
-        return lhs.second() < rhs.second();
-    }
-
-    friend constexpr auto operator<=( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        return !( rhs < lhs );
-    }
-
-    friend constexpr auto operator>( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        return rhs < lhs;
-    }
-
-    friend constexpr auto operator>=( const SCompressedPair& lhs, const SCompressedPair& rhs ) -> bool
-    {
-        return !( lhs < rhs );
-    }
-
-    constexpr void swap( SCompressedPair& other ) noexcept(std::is_nothrow_swappable_v<first_value_type> && std::is_nothrow_swappable_v<second_value_type>)
+    constexpr void swap(SPair& other) noexcept(std::is_nothrow_swappable_v<first_type> && std::is_nothrow_swappable_v<second_type>)
+        requires(!std::is_swappable_v<first_type> || std::is_swappable_v<second_type>)
     {
         using std::swap;
-        swap( first(), other.first() );
-        swap( second(), other.second() );
+        swap(first, other.first);
+        swap(second, other.second);
     }
-
-    friend constexpr void swap( SCompressedPair& lhs, SCompressedPair& rhs ) noexcept(std::is_nothrow_swappable_v<first_value_type> && std::is_nothrow_swappable_v<second_value_type>)
-    {
-        lhs.swap( rhs );
-    }
-};
-
-export template<class Type1, class Type2>
-struct SPair final
-{
-    using first_type = Type1;
-    using second_type = Type2;
-
-    first_type first{};
-    second_type second{};
-
-    constexpr explicit(std::is_default_constructible_v<first_type> && std::is_default_constructible_v<second_type>) SPair()
-        : first()
-        , second()
-    {
-    }
-
-    constexpr explicit(!( std::is_convertible_v<const first_type&, first_type> && std::is_convertible_v<const second_type&, second_type> )) SPair( const first_type& left, const second_type& right )
-        requires std::is_default_constructible_v<first_type> && std::is_default_constructible_v<second_type>
-        : first{left}
-        , second{right}
-    {
-    }
-
-    template<class U1 = first_type, class U2 = second_type>
-        requires std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>
-    constexpr explicit(!( std::is_convertible_v<U1, first_type> && std::is_convertible_v<U2, second_type> )) SPair( U1&& left, U2&& right )
-        : first{std::forward<U1>( left )}
-        , second{std::forward<U2>( right )}
-    {
-    }
-
-    template<class U1, class U2>
-        requires std::is_constructible_v<first_type, U1&> && std::is_constructible_v<second_type, U2&>
-    constexpr explicit(!( std::is_convertible_v<U1&, first_type> && std::is_convertible_v<U2&, second_type> )) SPair( SPair<U1, U2>& pair )
-        : first{pair.first}
-        , second{pair.second}
-    {
-    }
-
-    template<class U1, class U2>
-        requires std::is_constructible_v<first_type, const U1&> && std::is_constructible_v<second_type, const U2&>
-    constexpr explicit(!( std::is_convertible_v<const U1&, first_type> && std::is_convertible_v<const U2&, second_type> )) SPair( const SPair<U1, U2>& pair )
-        : first{pair.first}
-        , second{pair.second}
-    {
-    }
-
-    template<class U1, class U2>
-        requires std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>
-    constexpr explicit(!( std::is_convertible_v<U1, first_type> && std::is_convertible_v<U2, second_type> )) SPair( SPair<U1, U2>&& pair )
-        : first{std::forward<U1>( pair.first )}
-        , second{std::forward<U2>( pair.second )}
-    {
-    }
-
-    template<class U1, class U2>
-        requires std::is_constructible_v<first_type, U1> && std::is_constructible_v<second_type, U2>
-    constexpr explicit(!( std::is_convertible_v<const U1&, first_type> && std::is_convertible_v<const U2&, second_type> )) SPair( const SPair<U1, U2>&& pair )
-        : first{std::forward<const U1>( pair.first )}
-        , second{std::forward<const U2>( pair.second )}
-    {
-    }
-
-    template<PairLike P>
-    constexpr explicit(!( std::is_convertible_v<decltype(std::get<0>( std::declval<P&&>() )), first_type> && std::is_convertible_v<decltype(std::get<1>( std::declval<P&&>() )), second_type> ))
-        SPair( P&& SPair )
-            requires std::is_constructible_v<first_type, decltype(std::get<0>( std::declval<P&&>() ))> && std::is_constructible_v<second_type, decltype(std::get<1>( std::declval<P&&>() ))>
-        : first( std::get<0>( std::forward<P>( SPair ) ) )
-        , second( std::get<1>( std::forward<P>( SPair ) ) )
-    {
-    }
-
-    template<class... Args1, class... Args2>
-    constexpr SPair( std::piecewise_construct_t /*unused*/, std::tuple<Args1...> first_args, std::tuple<Args2...> second_args )
-        noexcept(std::is_nothrow_constructible_v<first_type, Args1...> && std::is_nothrow_constructible_v<second_type, Args2...>)
-        : SPair( std::piecewise_construct, first_args, second_args, std::make_index_sequence<sizeof...( Args1 )>{}, std::make_index_sequence<sizeof...( Args2 )>{} )
-    {
-    }
-
-    template<class... Args1, class... Args2, size_t... I1, size_t... I2>
-    constexpr SPair( std::piecewise_construct_t /*unused*/, std::tuple<Args1...>& first_args, std::tuple<Args2...>& second_args, std::index_sequence<I1...> /*unused*/, std::index_sequence<I2...> /*unused*/ )
-        : first( std::forward<Args1>( std::get<I1>( first_args ) )... )
-        , second( std::forward<Args2>( std::get<I2>( second_args ) )... )
-    {
-    }
-
-    constexpr auto operator=( const SPair& other ) -> SPair& requires std::is_copy_assignable_v<first_type> && std::is_copy_assignable_v<second_type>
-    {
-        if ( this != &other )
-        {
-            first = other.first;
-            second = other.second;
-        }
-        return *this;
-    }
-
-    constexpr auto operator=( const SPair& ) -> SPair& requires std::is_copy_assignable_v<const first_type> && std::is_copy_assignable_v<const second_type>
-    = default;
-
-    template<class U1, class U2>
-    constexpr auto operator=( const SPair<U1, U2>& other ) -> SPair& requires std::is_assignable_v<first_type&, const U1&> && std::is_assignable_v<second_type&, const U2&>
-    {
-        if ( this != &other )
-        {
-            first = other.first;
-            second = other.second;
-        }
-        return *this;
-    }
-
-    template<class U1, class U2>
-    constexpr auto operator=( const SPair<U1, U2>& other ) const -> const SPair& requires std::is_assignable_v<const first_type&, const U1&> && std::is_assignable_v<const second_type&, const U2&>
-    {
-        if ( this != &other )
-        {
-            first = other.first;
-            second = other.second;
-        }
-        return *this;
-    }
-
-    constexpr auto operator=( SPair&& other ) noexcept( std::is_nothrow_move_assignable_v<first_type> && std::is_nothrow_move_assignable_v<second_type>) -> SPair& requires std::is_move_assignable_v<first_type&> && std::is_move_assignable_v<
-        second_type&>
-    {
-        first = std::move( other ).first;
-        second = std::move( other ).second;
-        return *this;
-    }
-
-    constexpr auto operator=( SPair&& other ) const noexcept( std::is_nothrow_move_assignable_v<const first_type> && std::is_nothrow_move_assignable_v<const second_type>) -> const SPair& requires std::is_assignable_v<const first_type&, first_type> &&
-        std::is_assignable_v<const second_type&, second_type>
-    {
-        first = std::forward<first_type>( other.first );
-        second = std::forward<second_type>( other.second );
-        return *this;
-    }
-
-    template<class U1, class U2>
-    constexpr auto operator=( SPair<U1, U2>&& other ) -> SPair& requires std::is_assignable_v<const first_type&, U1> && std::is_assignable_v<const second_type&, U2>
-    {
-        first = std::forward<first_type>( other.first );
-        second = std::forward<second_type>( other.second );
-        return *this;
-    }
-
-    template<class U1, class U2>
-    constexpr auto operator=( SPair<U1, U2>&& other ) const -> const SPair& requires std::is_assignable_v<const first_type&, const U1&> && std::is_assignable_v<const second_type&, const U2&>
-    {
-        first = std::forward<first_type>( other.first );
-        second = std::forward<second_type>( other.second );
-        return *this;
-    }
-
-    template<PairLike P>
-    constexpr auto operator=( P&& other ) -> SPair& requires( std::is_assignable_v<first_type&, decltype(std::get<0>( std::declval<P>() ))> && std::is_assignable_v<second_type&, decltype(std::get<1>( std::declval<P>() ))> )
-    {
-        first = std::get<0>( std::forward<P>( other ) );
-        second = std::get<1>( std::forward<P>( other ) );
-        return *this;
-    }
-
-    template<PairLike P>
-    constexpr auto operator=( P&& other ) const -> const SPair& requires( std::is_assignable_v<first_type&, decltype(std::get<0>( std::declval<P>() ))> && std::is_assignable_v<second_type&, decltype(std::get<1>( std::declval<P>() ))> )
-    {
-        first = std::get<0>( std::forward<P>( other ) );
-        second = std::get<1>( std::forward<P>( other ) );
-        return *this;
-    }
-
-    constexpr ~SPair() = default;
-    constexpr SPair( const SPair& other ) = default;
-    constexpr SPair( SPair&& other ) noexcept = default;
-
-    friend constexpr auto operator==( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        return lhs.first == rhs.first
-                && lhs.second == rhs.second;
-    }
-
-    friend constexpr auto operator!=( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        return !( lhs == rhs );
-    }
-
-    friend auto operator<( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        if ( lhs.first < rhs.first )
-        {
-            return true;
-        }
-        if ( rhs.first < lhs.first )
-        {
-            return false;
-        }
-        return lhs.second < rhs.second;
-    }
-
-    friend auto operator<=( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        return !( rhs < lhs );
-    }
-
-    friend auto operator>( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        return rhs < lhs;
-    }
-
-    friend auto operator>=( const SPair& lhs, const SPair& rhs ) -> bool
-    {
-        return !( lhs < rhs );
-    }
-
-    constexpr void swap( SPair& other ) noexcept
+    constexpr void swap(const SPair& other) const
+        noexcept(std::is_nothrow_swappable_v<const first_type> && std::is_nothrow_swappable_v<const second_type>)
+        requires(!std::is_swappable_v<const first_type> || std::is_swappable_v<const second_type>)
     {
         using std::swap;
-        swap( first, other.first );
-        swap( second, other.second );
-    }
-
-    friend constexpr void swap( SPair& lhs, SPair& rhs ) noexcept
-    {
-        using std::swap;
-        lhs.swap( rhs );
+        swap(first, other.first);
+        swap(second, other.second);
     }
 };
-
-export template<class T1, class T2>
-constexpr auto MakeCompactPair( T1&& value1, T2&& value2 ) -> SCompressedPair<std::decay_t<T1>, std::decay_t<T2>>
+export template <class T1, class T2>
+constexpr SPair<std::unwrap_ref_decay_t<T1>, std::unwrap_ref_decay_t<T2>> make_pair(T1&& x, T2&& y)
 {
-    return SCompressedPair<std::decay_t<T1>, std::decay_t<T2>>( std::forward<T1>( value1 ), std::forward<T2>( value2 ) );
+    return SPair<std::unwrap_ref_decay_t<T1>, std::unwrap_ref_decay_t<T2>>(std::forward<T1>(x), std::forward<T2>(y));
 }
+} // namespace DeerContainer
 
-export template<class T1, class T2>
-constexpr auto MakePair( T1&& value1, T2&& value2 ) -> SPair<std::decay_t<T1>, std::decay_t<T2>>
+export template <class T1, class T2, class U1, class U2>
+    requires(std::is_convertible_v<decltype(std::declval<T1>() == std::declval<U1>()), bool>
+             && std::is_convertible_v<decltype(std::declval<T2>() == std::declval<U2>()), bool>)
+constexpr bool operator==(const DeerContainer::SPair<T1, T2>& lhs, const DeerContainer::SPair<U1, U2>& rhs)
 {
-    return SPair<std::decay_t<T1>, std::decay_t<T2>>( std::forward<T1>( value1 ), std::forward<T2>( value2 ) );
+    return (lhs.first == rhs.first) && (lhs.second == rhs.second);
 }
-
-
-export template<typename Type, typename Other>
-SCompressedPair( Type&&, Other&& ) -> SCompressedPair<std::decay_t<Type>, std::decay_t<Other>>;
-export template<typename Type, typename Other>
-SPair( Type&&, Other&& ) -> SPair<std::decay_t<Type>, std::decay_t<Other>>;
-}// namespace DeerContainer
-
-export namespace std
+export template <class T1, class T2, class U1, class U2>
+constexpr auto operator<=>(const DeerContainer::SPair<T1, T2>& lhs, const DeerContainer::SPair<U1, U2>& rhs)
 {
-template<typename First, typename Second>
-struct tuple_size<DeerContainer::SCompressedPair<First, Second>> : integral_constant<size_t, 2U>
-{
-};
-
-template<size_t Index, typename First, typename Second>
-struct tuple_element<Index, DeerContainer::SCompressedPair<First, Second>> : conditional<Index == 0U, First, Second>
-{
-    static_assert( Index < 2U, "Index out of bounds" );
-};
-
-template<typename Type1, typename Type2>
-struct tuple_element<0, DeerContainer::SCompressedPair<Type1, Type2>>
-{
-    using type = Type1;
-};
-
-template<typename Type1, typename Type2>
-struct tuple_element<1, DeerContainer::SCompressedPair<Type1, Type2>>
-{
-    using type = Type2;
-};
-
-
-template<typename First, typename Second>
-struct tuple_size<DeerContainer::SPair<First, Second>> : integral_constant<size_t, 2U>
-{
-};
-
-template<size_t Index, typename First, typename Second>
-struct tuple_element<Index, DeerContainer::SPair<First, Second>> : conditional<Index == 0U, First, Second>
-{
-    static_assert( Index < 2U, "Index out of bounds" );
-};
-
-template<typename Type1, typename Type2>
-struct tuple_element<0, DeerContainer::SPair<Type1, Type2>>
-{
-    using type = Type1;
-};
-
-template<typename Type1, typename Type2>
-struct tuple_element<1, DeerContainer::SPair<Type1, Type2>>
-{
-    using type = Type2;
-};
-
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( DeerContainer::SCompressedPair<Type1, Type2>& pair ) noexcept -> std::tuple_element_t<Index, DeerContainer::SCompressedPair<Type1, Type2>>&
-{
-    if constexpr ( Index == 0 )
+    if (const auto val{lhs.first <=> rhs.first}; val != 0)
     {
-        return pair.first();
+        return val;
+    }
+    return lhs.second <=> rhs.second;
+}
+
+namespace std
+{
+export template <class T1, class T2>
+    requires(std::is_swappable_v<T1> && std::is_swappable_v<T2>)
+constexpr void swap(DeerContainer::SPair<T1, T2>& x, DeerContainer::SPair<T1, T2>& y) noexcept(noexcept(x.swap(y)))
+{
+    x.swap(y);
+}
+export template <class T1, class T2>
+    requires(std::is_swappable_v<const T1> && std::is_swappable_v<const T2>)
+constexpr void swap(const DeerContainer::SPair<T1, T2>& x, const DeerContainer::SPair<T1, T2>& y) noexcept(noexcept(x.swap(y)))
+{
+    x.swap(y);
+}
+
+export template <std::size_t I, class T1, class T2>
+constexpr typename std::tuple_element<I, DeerContainer::SPair<T1, T2>>::type& get(DeerContainer::SPair<T1, T2>& p) noexcept
+{
+    static_assert(I <= 1, "Index is bigger than 1. Only values 0, and 1 are allowed When calling std::get<>(SPair)");
+    if constexpr (I == 0)
+    {
+        return p.first;
     }
     else
     {
-        return pair.second();
+        return p.second;
     }
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( const DeerContainer::SCompressedPair<Type1, Type2>& pair ) noexcept -> const std::tuple_element_t<Index, DeerContainer::SCompressedPair<Type1, Type2>>&
+export template <std::size_t I, class T1, class T2>
+constexpr const typename std::tuple_element<I, DeerContainer::SPair<T1, T2>>::type& get(const DeerContainer::SPair<T1, T2>& p) noexcept
 {
-    if constexpr ( Index == 0 )
+    static_assert(I <= 1, "Index is bigger than 1. Only values 0, and 1 are allowed When calling std::get<>(SPair)");
+    if constexpr (I == 0)
     {
-        return pair.first();
+        return p.first;
     }
     else
     {
-        return pair.second();
+        return p.second;
     }
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( DeerContainer::SCompressedPair<Type1, Type2>&& pair ) noexcept -> std::tuple_element_t<Index, DeerContainer::SCompressedPair<Type1, Type2>>&&
+export template <std::size_t I, class T1, class T2>
+constexpr typename std::tuple_element<I, DeerContainer::SPair<T1, T2>>::type&& get(DeerContainer::SPair<T1, T2>&& p) noexcept
 {
-    if constexpr ( Index == 0 )
+    static_assert(I <= 1, "Index is bigger than 1. Only values 0, and 1 are allowed When calling std::get<>(SPair)");
+    if constexpr (I == 0)
     {
-        return std::move( pair.first() );
+        return std::move(p.first);
     }
     else
     {
-        return std::move( pair.second() );
+        return std::move(p.second);
     }
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( const DeerContainer::SCompressedPair<Type1, Type2>&& pair ) noexcept -> const std::tuple_element_t<Index, DeerContainer::SCompressedPair<Type1, Type2>>&&
+export template <std::size_t I, class T1, class T2>
+constexpr const typename std::tuple_element<I, DeerContainer::SPair<T1, T2>>::type&& get(const DeerContainer::SPair<T1, T2>&& p) noexcept
 {
-    if constexpr ( Index == 0 )
+    static_assert(I <= 1, "Index is bigger than 1. Only values 0, and 1 are allowed When calling std::get<>(SPair)");
+    if constexpr (I == 0)
     {
-        return std::move( pair.first() );
+        return std::move(p.first);
     }
     else
     {
-        return std::move( pair.second() );
+        return std::move(p.second);
     }
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( DeerContainer::SPair<Type1, Type2>& pair ) noexcept -> std::tuple_element_t<Index, DeerContainer::SPair<Type1, Type2>>&
+export template <class T, class U>
+constexpr T& get(DeerContainer::SPair<T, U>& p) noexcept
 {
-    if constexpr ( Index == 0 )
-    {
-        return pair.first;
-    }
-    else
-    {
-        return pair.second;
-    }
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return p.first;
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( const DeerContainer::SPair<Type1, Type2>& pair ) noexcept -> const std::tuple_element_t<Index, DeerContainer::SPair<Type1, Type2>>&
+export template <class T, class U>
+constexpr const T& get(const DeerContainer::SPair<T, U>& p) noexcept
 {
-    if constexpr ( Index == 0 )
-    {
-        return pair.first;
-    }
-    else
-    {
-        return pair.second;
-    }
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return p.first;
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( DeerContainer::SPair<Type1, Type2>&& pair ) noexcept -> std::tuple_element_t<Index, DeerContainer::SPair<Type1, Type2>>&&
+export template <class T, class U>
+constexpr T&& get(DeerContainer::SPair<T, U>&& p) noexcept
 {
-    if constexpr ( Index == 0 )
-    {
-        return std::move( pair.first );
-    }
-    else
-    {
-        return std::move( pair.second );
-    }
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return std::move(p.first);
 }
 
-template<std::size_t Index, typename Type1, typename Type2>
-constexpr auto get( const DeerContainer::SPair<Type1, Type2>&& pair ) noexcept -> const std::tuple_element_t<Index, DeerContainer::SPair<Type1, Type2>>&&
+export template <class T, class U>
+constexpr const T&& get(const DeerContainer::SPair<T, U>&& p) noexcept
 {
-    if constexpr ( Index == 0 )
-    {
-        return std::move( pair.first );
-    }
-    else
-    {
-        return std::move( pair.second );
-    }
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return std::move(p.first);
 }
 
-}// namespace std
+export template <class T, class U>
+constexpr T& get(DeerContainer::SPair<U, T>& p) noexcept
+{
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return p.second;
+}
+
+export template <class T, class U>
+constexpr const T& get(const DeerContainer::SPair<U, T>& p) noexcept
+{
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return p.second;
+}
+
+export template <class T, class U>
+constexpr T&& get(DeerContainer::SPair<U, T>&& p) noexcept
+{
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return std::move(p.second);
+}
+
+export template <class T, class U>
+constexpr const T&& get(const DeerContainer::SPair<U, T>&& p) noexcept
+{
+    static_assert(!std::is_same_v<T, U>, "When calling get<calss T, class U>(SPair), T and U cannot be the same");
+    return std::move(p.second);
+}
+
+export template <class T1, class T2>
+struct tuple_size<DeerContainer::SPair<T1, T2>> : std::integral_constant<std::size_t, 2>
+{
+};
+
+export template <std::size_t I, class T1, class T2>
+struct tuple_element<I, DeerContainer::SPair<T1, T2>>
+{
+    static_assert(I < 2, "DeerContainer::SPair has only 2 elements!");
+};
+
+export template <class T1, class T2>
+struct tuple_element<0, DeerContainer::SPair<T1, T2>>
+{
+    using type = T1;
+};
+export template <class T1, class T2>
+struct tuple_element<1, DeerContainer::SPair<T1, T2>>
+{
+    using type = T2;
+};
+
+export template <class T1, class T2, class U1, class U2, template <class> class TQual, template <class> class UQual>
+    requires requires {
+        typename DeerContainer::SPair<std::common_reference_t<TQual<T1>, UQual<U1>>, std::common_reference_t<TQual<T2>, UQual<U2>>>;
+    }
+struct basic_common_reference<DeerContainer::SPair<T1, T2>, DeerContainer::SPair<U1, U2>, TQual, UQual>
+{
+    using type = DeerContainer::SPair<std::common_reference_t<TQual<T1>, UQual<U1>>, std::common_reference_t<TQual<T2>, UQual<U2>>>;
+};
+export template <class T1, class T2, class U1, class U2>
+
+    requires requires { typename DeerContainer::SPair<std::common_type_t<T1, U1>, std::common_type_t<T2, U2>>; }
+struct common_type<DeerContainer::SPair<T1, T2>, DeerContainer::SPair<U1, U2>>
+{
+    using type = DeerContainer::SPair<std::common_type_t<T1, U1>, std::common_type_t<T2, U2>>;
+};
+
+export template <class CharT, std::formattable<CharT>... Ts>
+struct formatter<DeerContainer::SPair<Ts...>, CharT>
+{
+    constexpr void set_separator(std::basic_string_view<CharT> sep) noexcept
+    {
+        separator_ = sep;
+    }
+    constexpr void set_brackets(std::basic_string_view<CharT> opening, std::basic_string_view<CharT> closing) noexcept
+    {
+        opening_bracket_ = opening;
+        closing_bracket_ = closing;
+    }
+    template <class ParseContext>
+    constexpr auto parse(ParseContext& ctx) -> typename ParseContext::iterator
+    {
+        auto it  = ctx.begin();
+        auto end = ctx.end();
+
+        // Parse any custom format specifiers here (e.g., changing separators or brackets)
+        if (it != end && *it != closing_bracket_)
+        {
+            // Example: parse a single character as a separator
+            set_separator(std::basic_string_view<CharT>(&*it, 1));
+            ++it;
+        }
+
+        // Parse format specifiers for underlying types
+        if (it != end && *it == separator_)
+        {
+            ++it;
+            it = std::get<0>(underlying_).parse(ctx);
+            it = std::get<1>(underlying_).parse(ctx);
+        }
+
+        // Ensure the parse context is valid
+        if (it != end && *it != closing_bracket_)
+        {
+            throw std::format_error("Invalid format");
+        }
+
+        return it;
+    }
+
+    template <class FormatContext>
+    auto format(const DeerContainer::SPair<Ts...>& pair, FormatContext& ctx) const -> typename FormatContext::iterator
+    {
+        auto out = ctx.out();
+
+        // Write opening bracket
+        out = std::copy(opening_bracket_.begin(), opening_bracket_.end(), out);
+
+        // Format and write the first element
+        out = std::get<0>(underlying_).format(pair.first, ctx);
+
+        // Write separator
+        out = std::copy(separator_.begin(), separator_.end(), out);
+
+        // Format and write the second element
+        out = std::get<1>(underlying_).format(pair.second, ctx);
+
+        // Write closing bracket
+        out = std::copy(closing_bracket_.begin(), closing_bracket_.end(), out);
+
+        return out;
+    }
+
+  private:
+    std::tuple<std::formatter<std::remove_cvref_t<Ts>, CharT>...> underlying_;
+    std::basic_string_view<CharT>                                 separator_       = ", ";
+    std::basic_string_view<CharT>                                 opening_bracket_ = "(";
+    std::basic_string_view<CharT>                                 closing_bracket_ = ")";
+};
+} // namespace std

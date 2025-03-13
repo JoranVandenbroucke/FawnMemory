@@ -5,8 +5,8 @@
 
 module;
 #include <cstddef>
-export module DeerAllocator.Buckitizer;
-import DeerAllocator.Common;
+export module DeerAllocator:Buckitizer;
+import :Common;
 
 namespace DeerAllocator
 {

@@ -6,8 +6,8 @@
 module;
 #include <bit>
 #include <cstddef>
-export module DeerAllocator.Freelist;
-import DeerAllocator.Common;
+export module DeerAllocator:Freelist;
+import :Common;
 
 namespace DeerAllocator
 {

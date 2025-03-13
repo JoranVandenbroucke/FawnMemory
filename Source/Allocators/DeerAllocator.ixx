@@ -3,14 +3,22 @@
 // Author: Joran Vandenbroucke.
 //
 
+module;
+#include <memory>
 export module DeerAllocator;
-export import DeerAllocator.AffixAllocator;
-export import DeerAllocator.AllocatorWithStats;
-// export import DerAllocator.BitmappedBlock;
-export import DeerAllocator.Buckitizer;
-// export import DeerAllocator.CascadingAllocator;
-export import DeerAllocator.FallbackAllocator;
-export import DeerAllocator.Freelist;
-export import DeerAllocator.Mallocator;
-export import DeerAllocator.Segregator;
-export import DeerAllocator.StackAllocator;
+export import :Common;
+export import :Utilities;
+export import :AffixAllocator;
+export import :AllocatorWithStats;
+// export import :BitmappedBlock;
+export import :Buckitizer;
+// export import :CascadingAllocator;
+export import :FallbackAllocator;
+export import :Freelist;
+export import :Mallocator;
+export import :Segregator;
+export import :StackAllocator;
+
+// todo : make lambda static "[]()static{}"; C++26
+export template <typename T, auto DeleteFn>
+using unique_ptr_deleter = std::unique_ptr<T, decltype([](T* obj) { DeleteFn(obj); })>;

@@ -10,8 +10,8 @@ module;
 #include <cstring>
 #include <iostream>
 #include <source_location>
-export module DeerAllocator.AllocatorWithStats;
-import DeerAllocator.Common;
+export module DeerAllocator:AllocatorWithStats;
+import :Common;
 
 namespace DeerAllocator
 {
