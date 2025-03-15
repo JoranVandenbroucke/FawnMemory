@@ -27,5 +27,6 @@ target_compile_options(${PROJECT_NAME}_test
 
 target_compile_features(${PROJECT_NAME}_test PRIVATE cxx_std_23)
 
+enable_testing()
 include(setup_catch)
 setup_catch(${PROJECT_NAME}_test)
