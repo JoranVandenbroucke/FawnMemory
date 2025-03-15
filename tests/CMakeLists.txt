@@ -28,4 +28,4 @@ target_compile_options(${PROJECT_NAME}_test
 target_compile_features(${PROJECT_NAME}_test PRIVATE cxx_std_23)
 
 include(setup_catch)
-setup_catch(${PROJECT_NAME})
+setup_catch(${PROJECT_NAME}_test)
