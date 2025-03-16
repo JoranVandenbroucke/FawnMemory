@@ -209,10 +209,10 @@ class CVector
         m_begin = m_end = m_max.first = nullptr;
     }
 
-    CVector(const CVector& other)                        = delete;
-    CVector(CVector&& other) noexcept                    = delete;
-    auto operator=(const CVector& other) -> CVector&     = delete;
-    auto operator=(CVector&& other) noexcept -> CVector& = delete;
+    CVector(const CVector& other)                        = default;
+    CVector(CVector&& other) noexcept                    = default;
+    auto operator=(const CVector& other) -> CVector&     = default;
+    auto operator=(CVector&& other) noexcept -> CVector& = default;
 
     constexpr auto operator=(std::initializer_list<value_type> iList) -> CVector&
     {
