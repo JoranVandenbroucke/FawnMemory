@@ -1,13 +1,16 @@
 //
-// Copyright (c) 2024.
+// Copyright (c) 2025.
 // Author: Joran Vandenbroucke.
 //
 
 module;
 #include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <memory>
+#include <ranges>
 #include <stdexcept>
+#include <type_traits>
 
 #include "ContainerCompatibleRange.hpp"
 export module DeerContainer:Vector;
@@ -160,13 +163,15 @@ class CVectorIterator
 export template <class T, class Allocator = std::allocator<T>>
 class CVector
 {
+    using alloc_traits = std::allocator_traits<Allocator>;
+
   public:
     using value_type             = T;
     using allocator_type         = Allocator;
-    using size_type              = typename std::allocator_traits<allocator_type>::size_type;
-    using difference_type        = typename std::allocator_traits<allocator_type>::difference_type;
-    using pointer                = typename std::allocator_traits<allocator_type>::pointer;
-    using const_pointer          = typename std::allocator_traits<allocator_type>::const_pointer;
+    using size_type              = typename alloc_traits::size_type;
+    using difference_type        = typename alloc_traits::difference_type;
+    using pointer                = typename alloc_traits::pointer;
+    using const_pointer          = typename alloc_traits::const_pointer;
     using reference              = value_type&;
     using const_reference        = const value_type&;
     using iterator               = CVectorIterator<pointer>;
@@ -174,9 +179,14 @@ class CVector
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    constexpr CVector() noexcept = default;
+    constexpr CVector() noexcept(noexcept(Allocator())) : CVector(Allocator()) {}
 
     constexpr explicit CVector(const Allocator& alloc) noexcept : m_max{nullptr, alloc} {}
+
+    constexpr explicit CVector(size_type count, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
+    {
+        Allocate(count);
+    }
 
     constexpr CVector(size_type count, const value_type& value, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
     {
@@ -188,11 +198,6 @@ class CVector
         do_work(count, value);
     }
 
-    constexpr explicit CVector(size_type count, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
-    {
-        Allocate(count);
-    }
-
     template <class InputIt>
     constexpr CVector(InputIt first, InputIt last, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
     {
@@ -202,17 +207,85 @@ class CVector
         }
     }
 
-    ~CVector()
+    template <typename R>
+    constexpr CVector(std::from_range_t, R&& range, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
+    {
+        if constexpr (std::ranges::forward_range<R> || std::ranges::sized_range<R>)
+        {
+            Allocate(static_cast<size_type>(std::ranges::distance(range)));
+        }
+        for (auto it{std::ranges::cbegin(range)}; it != std::ranges::cend(range); ++it)
+        {
+            emplace_back(*it);
+        }
+    }
+
+    CVector(const CVector& other) noexcept : m_max{nullptr, alloc_traits::select_on_container_copy_construction(other.m_max.second)}
+    {
+        Allocate(other.size());
+        ConstructData(other.begin(), other.end());
+    }
+
+    CVector(CVector&& other) noexcept : m_max{nullptr, std::move(other.m_max.second)}
+    {
+        m_begin     = other.m_begin;
+        m_end       = other.m_end;
+        m_max.first = other.m_max.first;
+
+        other.m_begin = other.m_end = other.m_max.first = nullptr;
+    }
+
+    CVector(const CVector& other, std::type_identity_t<allocator_type> alloc) noexcept : m_max{nullptr, alloc}
+    {
+        Allocate(other.size());
+        ConstructData(other.begin(), other.end());
+    }
+
+    CVector(CVector&& other, std::type_identity_t<allocator_type> alloc) noexcept : m_max{nullptr, std::move(other.m_max.second)}
+    {
+        if (other.m_max.second == alloc)
+        {
+            m_begin     = other.m_begin;
+            m_end       = other.m_end;
+            m_max.first = other.m_max.first;
+
+            other.m_begin = other.m_end = other.m_max.first = nullptr;
+        }
+        else
+        {
+            using ip = std::move_iterator<iterator>;
+            Allocate(other.size());
+            ConstructData(ip(other.begin()), ip(other.end()));
+        }
+    }
+
+    ~CVector() noexcept
     {
         clear();
         std::allocator_traits<allocator_type>::deallocate(m_max.second, m_begin, capacity());
         m_begin = m_end = m_max.first = nullptr;
     }
 
-    CVector(const CVector& other)                        = default;
-    CVector(CVector&& other) noexcept                    = default;
-    auto operator=(const CVector& other) -> CVector&     = default;
-    auto operator=(CVector&& other) noexcept -> CVector& = default;
+    auto operator=(const CVector& other) -> CVector&
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+        if (alloc_traits::propagate_on_container_move_assignment::value)
+        {
+            if (m_max.second != other.m_max.second)
+            {
+                clear();
+                std::allocator_traits<allocator_type>::deallocate(m_max.second, m_begin, capacity());
+                m_begin = m_end = m_max.first = nullptr;
+            }
+        }
+        ConstructData(other.begin(), other.end());
+        return *this;
+    }
+    auto operator=(CVector&& other) noexcept(alloc_traits::propagate_on_container_move_assignment::value
+                                             || alloc_traits::is_always_equal::value) -> CVector& = default;
 
     constexpr auto operator=(std::initializer_list<value_type> iList) -> CVector&
     {
