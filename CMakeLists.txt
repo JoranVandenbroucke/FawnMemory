@@ -16,38 +16,38 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 
 target_sources(${PROJECT_NAME}
         PRIVATE
-        Source/Container/ContainerCompatibleRange.hpp
-        Source/Container/ValueTraits.hpp
+        Source/container/containerCompatibleRange.hpp
+        Source/container/ValueTraits.hpp
         PUBLIC
         FILE_SET CXX_MODULES TYPE CXX_MODULES FILES
         source/FawnMemory.ixx
-        source/Allocators/AffixAllocator.ixx
-        source/Allocators/AllocatorWithStats.ixx
-        #        source/Allocators/BitmappedBlock.ixx
-        source/Allocators/Buckitizer.ixx
-        #        source/Allocators/CascadingAllocator.ixx
-        source/Allocators/Common.ixx
-        source/Allocators/DeerAllocator.ixx
-        source/Allocators/FallbackAllocator.ixx
-        source/Allocators/Freelist.ixx
-        source/Allocators/Mallocator.ixx
-        source/Allocators/Segregator.ixx
-        source/Allocators/StackAllocator.ixx
-        source/Allocators/Utilities.ixx
+        source/allocators/AffixAllocator.ixx
+        source/allocators/AllocatorWithStats.ixx
+        #        source/allocators/BitmappedBlock.ixx
+        source/allocators/Buckitizer.ixx
+        #        source/allocators/CascadingAllocator.ixx
+        source/allocators/Common.ixx
+        source/allocators/DeerAllocator.ixx
+        source/allocators/FallbackAllocator.ixx
+        source/allocators/Freelist.ixx
+        source/allocators/Mallocator.ixx
+        source/allocators/Segregator.ixx
+        source/allocators/StackAllocator.ixx
+        source/allocators/Utilities.ixx
 
-        source/Container/CircularBuffer.ixx
-        source/Container/CompressedPair.ixx
-        source/Container/DeerContainer.ixx
-        source/Container/DenseMap.ixx
-        source/Container/DenseSet.ixx
-        source/Container/FixedString.ixx
-        source/Container/Pair.ixx
-        source/Container/SparseSet.ixx
-        source/Container/Vector.ixx
+        source/container/CircularBuffer.ixx
+        source/container/CompressedPair.ixx
+        source/container/Deercontainer.ixx
+        source/container/DenseMap.ixx
+        source/container/DenseSet.ixx
+        source/container/FixedString.ixx
+        source/container/Pair.ixx
+        source/container/SparseSet.ixx
+        source/container/Vector.ixx
 
-#        source/EntityComponent/DeerEntity.ixx
-#        source/EntityComponent/ECManager.ixx
-#        source/EntityComponent/Storage.ixx
+#        source/entity_component/DeerEntity.ixx
+#        source/entity_component/ECManager.ixx
+#        source/entity_component/Storage.ixx
 )
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
