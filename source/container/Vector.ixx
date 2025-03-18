@@ -6,6 +6,7 @@
 module;
 #include <algorithm>
 #include <cassert>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <ranges>
@@ -18,9 +19,6 @@ import :CompressedPair;
 
 namespace DeerContainer
 {
-/**
- * @cond TURN_OFF_DOXYGEN
- */
 template <class Itr>
 class CVectorIterator
 {
@@ -156,9 +154,6 @@ class CVectorIterator
   private:
     Itr m_itr;
 };
-/**
- * @endcond
- */
 
 export template <class T, class Allocator = std::allocator<T>>
 class CVector
@@ -257,6 +252,12 @@ class CVector
             Allocate(other.size());
             ConstructData(ip(other.begin()), ip(other.end()));
         }
+    }
+
+    CVector(std::initializer_list<value_type> ilist, const Allocator alloc) noexcept : m_max{nullptr, alloc}
+    {
+        Allocate(ilist.size());
+        ConstructData(ilist.begin(), ilist.end());
     }
 
     ~CVector() noexcept
