@@ -254,7 +254,7 @@ class CVector
         }
     }
 
-    CVector(std::initializer_list<value_type> ilist, const Allocator alloc) noexcept : m_max{nullptr, alloc}
+    CVector(std::initializer_list<value_type> ilist, const Allocator alloc = Allocator{}) noexcept : m_max{nullptr, alloc}
     {
         Allocate(ilist.size());
         ConstructData(ilist.begin(), ilist.end());
