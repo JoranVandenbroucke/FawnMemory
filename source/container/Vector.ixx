@@ -181,6 +181,7 @@ class CVector
     constexpr explicit CVector(size_type count, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
     {
         Allocate(count);
+        ConstructData(count);
     }
 
     constexpr CVector(size_type count, const value_type& value, const Allocator& alloc = Allocator()) : m_max{nullptr, alloc}
@@ -190,7 +191,7 @@ class CVector
             return;
         }
         Allocate(count);
-        do_work(count, value);
+        ConstructData(count, value);
     }
 
     template <class InputIt>
