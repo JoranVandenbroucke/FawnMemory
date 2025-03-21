@@ -288,7 +288,7 @@ class CVector
     auto operator=(CVector&& other) noexcept(alloc_traits::propagate_on_container_move_assignment::value
                                              || alloc_traits::is_always_equal::value) -> CVector& = default;
 
-    constexpr auto operator=(std::initializer_list<value_type> iList) -> CVector&
+    auto operator=(std::initializer_list<value_type> iList) -> CVector&
     {
         if (iList.size())
         {
@@ -297,6 +297,40 @@ class CVector
         }
 
         return *this;
+    }
+
+    friend constexpr bool operator==(const CVector& lhs, const CVector& rhs)
+    {
+        if (lhs.size() != rhs.size())
+        {
+            return false;
+        }
+
+        for (size_type i{}; i < lhs.size(); ++i)
+        {
+            if (lhs[i] != rhs[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    friend constexpr auto operator<=>(const CVector& lhs, const CVector& rhs)
+    {
+        if (const auto value{lhs.size() <=> rhs.size()}; value != 0)
+        {
+            return value;
+        }
+
+        for (size_type i{}; i < lhs.size(); ++i)
+        {
+            if (const auto value{lhs[i] <=> rhs[i]}; value != 0)
+            {
+                return value;
+            }
+        }
+        return 0;
     }
 
     constexpr auto get_allocator() const -> allocator_type
